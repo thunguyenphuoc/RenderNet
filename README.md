@@ -11,6 +11,15 @@ __All these objects are rendered with the same network__
   </tr>
 </table></p>
 
+[RenderNet: A deep convolutional network for differentiable rendering from 3D shapes](https://www.monkeyoverflow.com/#/rendernet-a-cnn-for-differentiable-rendering-from-3d-shapes/)  
+ [Thu Nguyen-Phuoc](https://monkeyoverflow.com),  [Chuan Li](https://lambdalabs.com/blog/author/chuan/), [Stephen Balaban](https://lambdalabs.com/), [Yong-liang Yang](http://yongliangyang.net/)  
+(To appear) Neural Information Processing 2018   
+ 
+###Dataset
+###Trained models
+###Getting started
+
+###Demo with a trained model for Phong shading
 ## Installation
 
 Tested with Ubuntu 16.04, Tensorflow 1.8, CDUA 9.0, cuDNN 7. 
