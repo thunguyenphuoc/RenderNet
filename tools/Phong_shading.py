@@ -96,16 +96,16 @@ def tf_phong_composite(images_in, light_dir, light_col, ambient_in, k_diffuse, w
     :param with_mask. Using binary mask for the background
     :return batch of Phong shaded images clipped to range [0,1]
     """
-    #Create binary mask
-    if with_black_background:
-        mask = tf_mask(images_in)
-    else:
-        mask = tf_mask_white(images_in)
 
     #Create diffuse
     diffuse = tf_phong_shading(images_in, light_dir, light_col, k_diffuse)
 
     if with_mask:
+        # Create binary mask
+        if with_black_background:
+            mask = tf_mask(images_in)
+        else:
+            mask = tf_mask_white(images_in)
         compos = mask * (ambient_in + diffuse) + (1 - mask)
     else:
         compos = ambient_in + diffuse
@@ -207,16 +207,16 @@ def np_phong_composite(images_in, light_dir, light_col, ambient_in, k_diffuse, b
     :param with_mask. Using binary mask for the background
     :return batch of Phong shaded images clipped to range [0,1]
     """
-    #Create binary mask
-    if background_col == "Black" or background_col == "black" or background_col == "BLACK":
-        mask = np_mask(images_in)
-    else:
-        mask = np_mask_white(images_in)
 
     #Create diffuse
     diffuse = np_phong_shading(images_in, light_dir, light_col, k_diffuse)
 
     if with_mask:
+        # Create binary mask
+        if background_col == "Black" or background_col == "black" or background_col == "BLACK":
+            mask = np_mask(images_in)
+        else:
+            mask = np_mask_white(images_in)
         compos = mask * (ambient_in + diffuse) + (1 - mask)
     else:
         compos = ambient_in + diffuse

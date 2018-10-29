@@ -7,8 +7,10 @@ import tarfile
 import time
 import zlib
 import glob
+import sys
 import os
 import scipy
+
 
 import numpy as np
 import binvox_rw
