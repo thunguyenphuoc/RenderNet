@@ -233,12 +233,21 @@ def generate_random_light_pos(batch_size, elevation_low=0, elevation_high=90, az
     :param azimuth_high
     :return numpy array of batches of random light position. Shape [batch_size, 3]
     """
-    elevation = (90 - np.random.randint(elevation_low, elevation_high, size = (batch_size, 1))) * math.pi / 180.0
+    elevation = (np.random.randint(elevation_low, elevation_high, size = (batch_size, 1))) * math.pi / 180.0
     azimuth = np.random.randint(azimuth_low, azimuth_high, 90, size = (batch_size, 1)) * math.pi / 180.0
-    x = np.multiply(np.sin(elevation), np.cos(azimuth))
-    y = np.multiply(np.sin(elevation), np.sin(azimuth))
-    z = np.cos(elevation)
+    x = np.multiply(-np.sin(elevation), np.cos(azimuth))
+    y = np.cos(elevation)
+    z = np.multiply(-np.sin(elevation), np.sin(azimuth))
     return np.hstack((x, y, z))
+
+def generate_light_pos(elevation=90, azimuth=90):
+  elevation = (np.array([[elevation]])) * math.pi / 180.0
+  azimuth = (np.array([[azimuth]])) * math.pi / 180.0
+  x = np.multiply(-np.sin(elevation), np.cos(azimuth))
+  y = np.cos(elevation)
+  z = np.multiply(-np.sin(elevation), np.sin(azimuth))
+  return np.hstack((x, y, z))
+
 
 
 if __name__ == "__main__":

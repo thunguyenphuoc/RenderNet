@@ -6,14 +6,11 @@ import io
 import tarfile
 import time
 import zlib
-import glob
-import sys
-import os
 import scipy
 
 
 import numpy as np
-import binvox_rw
+import tools.binvox_rw as binvox_rw
 
 """
 Adjusted from Andrew Brock (https://github.com/ajbrock/Generative-and-Discriminative-Voxel-Modeling)

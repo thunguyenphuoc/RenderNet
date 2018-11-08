@@ -10,9 +10,9 @@ import time
 
 # sys.path.append(os.path.dirname(__file__))
 
-import Phong_shading
-import layer_util
-import binvox_rw
+import tools.Phong_shading as Phong_shading
+import tools.layer_util as layer_util
+import tools.binvox_rw as binvox_rw
 
 def repeat(x, n_repeats):
     """

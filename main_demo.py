@@ -10,8 +10,8 @@ from tools import binvox_rw, Phong_shading
 
 # =======================================================================================================
 # RenderNet Phong shading demo
-# The network output a normal map from a 3D voxel.
-# The normal map is then used to create phong shading with lighting control.
+# The network outputs a normal map from a 3D voxel.
+# The normal map is then used to create Phong shading with lighting control.
 # ======================================================================================================
 
 # Phong shading paramters
@@ -64,13 +64,7 @@ def render(azimuth, elevation, radius, sess, voxel, light_dir,
   print(save_path)
   misc.imsave(save_path, image_out)
 
-def generate_light_pos(elevation=90, azimuth=90):
-  elevation = (90 - np.array([[elevation]])) * math.pi / 180.0
-  azimuth = (np.array([[azimuth]])) * math.pi / 180.0
-  x = np.multiply(np.sin(elevation), np.cos(azimuth))
-  y = np.multiply(np.sin(elevation), np.sin(azimuth))
-  z = np.cos(elevation)
-  return np.hstack((x, y, z))
+
 
 
 def main():
@@ -124,7 +118,7 @@ def main():
     radius = args.radius
     light_elevation = args.light_elevation
     light_azimuth = args.light_azimuth
-    light_dir = generate_light_pos(light_elevation, light_azimuth)
+    light_dir = Phong_shading.generate_light_pos(light_elevation, light_azimuth)
 
     with open(args.voxel_path, 'rb') as f:
         voxel = np.reshape(

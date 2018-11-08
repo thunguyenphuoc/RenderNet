@@ -1,10 +1,25 @@
 import numpy as np
-import tensorflow.contrib.layers as layers
+import tensorflow.contrib.slim as slim
 import tensorflow as tf
 
 """
 Helper functions to build up a CNN
 """
+def projection_unit(input, n_features=18, scope = 'projection_unit'):
+    """
+    Projecting 3D tensors to 2D tensors, followed by a 1X1 convolution
+    :param input: 3D tensrs. Shape [batch, height, width, depth, channel]
+    :param n_features: Numbers of tensors after collapsing. Equivalent to depth X n_channels of the input 3D tensor
+    :param scope: name of projection unit
+    :return: 2D tensors with shape [batch, height, width, channel]
+    """
+    batch_size = tf.shape(input)[0]
+    with tf.variable_scope(scope):
+        # n_features = tf.cast(input.get_shape()[3] * tf.shape(input.get_shape()[4], tf.int32))
+        n_features = input.get_shape()[3] * input.get_shape()[4]
+        input = tf.reshape(input, [batch_size, tf.shape(input)[1], tf.shape(input)[2], n_features])
+        conv = prelu(slim.conv2d(inputs=input, num_outputs = n_features, kernel_size=1, activation_fn=None))
+        return conv
 
 def lrelu(x, leak=0.2, name="lrelu"):
   return tf.maximum(x, leak*x, name=name)
@@ -45,46 +60,62 @@ def get_weight(weight_name, weight_dict):
 def res_block_3d(input, out_channels=64, scope = 'res_block', kernel=[3, 3, 3], stride=[1, 1, 1], weight_dict=None):
     """
     Create residual block comprises of a 3D convolution, Relu, and another 3D convolution.
-    The input if concatnated with the output of the second convolution
-
+    The input if concatenated with the output of the second convolution
+        If weight_dict is not provided, initialised new weights
     """
-    with tf.variable_scope(scope):
-        net = tf.nn.relu(conv3d(input, out_channels, kernel_size=kernel, stride=stride, pad="SAME", scope="con1_3X3",
-                                weight_initializer=get_weight(scope + 'con1_3X3_weights', weight_dict),
-                                bias_initializer=get_weight(scope + 'con1_3X3_biases', weight_dict),
-                                weight_initializer_type=tf.contrib.layers.xavier_initializer()))
+    if weight_dict is None:
+        print("Initialise weights for res blocks")
+        with tf.variable_scope(scope):
+            net = prelu(conv3d(input, out_channels, kernel_size=kernel, stride=stride, pad="SAME", scope="con1_3X3",
+                               weight_initializer_type=tf.contrib.layers.xavier_initializer()))
+            net = conv3d(net, out_channels, kernel_size=kernel, stride=stride, pad="SAME", scope="conv2_3x3",
+                         weight_initializer_type=tf.contrib.layers.xavier_initializer())
+        return tf.add(tf.cast(net, tf.float32), tf.cast(input, tf.float32))
+    else:
+        with tf.variable_scope(scope):
+            net = tf.nn.relu(conv3d(input, out_channels, kernel_size=kernel, stride=stride, pad="SAME", scope="con1_3X3",
+                                    weight_initializer=get_weight(scope + 'con1_3X3_weights', weight_dict),
+                                    bias_initializer=get_weight(scope + 'con1_3X3_biases', weight_dict),
+                                    weight_initializer_type=tf.contrib.layers.xavier_initializer()))
 
-        net = conv3d(net, out_channels, kernel_size=kernel, stride=stride, pad="SAME", scope="conv2_3x3",
-                     weight_initializer=get_weight(scope + 'conv2_3x3_weights', weight_dict),
-                     bias_initializer=get_weight(scope + 'conv2_3x3_biases', weight_dict),
-                     weight_initializer_type=tf.contrib.layers.xavier_initializer())
+            net = conv3d(net, out_channels, kernel_size=kernel, stride=stride, pad="SAME", scope="conv2_3x3",
+                         weight_initializer=get_weight(scope + 'conv2_3x3_weights', weight_dict),
+                         bias_initializer=get_weight(scope + 'conv2_3x3_biases', weight_dict),
+                         weight_initializer_type=tf.contrib.layers.xavier_initializer())
 
-    return tf.add(tf.cast(net, tf.float32), tf.cast(input, tf.float32))
+        return tf.add(tf.cast(net, tf.float32), tf.cast(input, tf.float32))
 
 
 def res_block_2d(input, out_channels=64, scope = 'res_block', kernel=[3, 3], stride=[1, 1], weight_dict=None):
     """
     Create residual block comprises of a 2D convolution, Relu, and another 2D convolution.
-    The input if concatnated with the output of the second convolution
+    The input if concatenated with the output of the second convolution.
+     If weight_dict is not provided, initialised new weights
 
     """
-    with tf.variable_scope(scope):
-        net = tf.nn.relu(conv2d(input, out_channels, kernel_size=kernel, stride=stride, pad="SAME", scope="con1_3X3",
-                                weight_initializer=get_weight(scope + 'con1_3X3_weights', weight_dict),
-                                bias_initializer=get_weight(scope + 'con1_3X3_biases', weight_dict),
-                                weight_initializer_type=tf.contrib.layers.xavier_initializer()))
+    if weight_dict is None:
+        with tf.variable_scope(scope):
+            print("Initialise weights for res blocks")
+            net = prelu(slim.conv2d(input, out_channels, kernel_size=kernel, stride=stride, activation_fn=None,
+                                    scope="con1_3X3"))
+            net = slim.conv2d(net, num_outputs=out_channels, kernel_size=kernel, stride=stride, activation_fn=None,
+                              scope="conv2_3x3")
+        return tf.add(tf.cast(net, tf.float32), tf.cast(input, tf.float32))
 
-        net = conv2d(net, out_channels, kernel_size=kernel, stride=stride, pad="SAME", scope="conv2_3x3",
-                     weight_initializer=get_weight(scope + 'conv2_3x3_weights', weight_dict),
-                     bias_initializer=get_weight(scope + 'conv2_3x3_biases', weight_dict),
-                     weight_initializer_type=tf.contrib.layers.xavier_initializer())
+    else:
+        with tf.variable_scope(scope):
+            net = tf.nn.relu(conv2d(input, out_channels, kernel_size=kernel, stride=stride, pad="SAME", scope="con1_3X3",
+                                    weight_initializer=get_weight(scope + 'con1_3X3_weights', weight_dict),
+                                    bias_initializer=get_weight(scope + 'con1_3X3_biases', weight_dict),
+                                    weight_initializer_type=tf.contrib.layers.xavier_initializer()))
 
-    return tf.add(tf.cast(net, tf.float32), tf.cast(input, tf.float32))
+            net = conv2d(net, out_channels, kernel_size=kernel, stride=stride, pad="SAME", scope="conv2_3x3",
+                         weight_initializer=get_weight(scope + 'conv2_3x3_weights', weight_dict),
+                         bias_initializer=get_weight(scope + 'conv2_3x3_biases', weight_dict),
+                         weight_initializer_type=tf.contrib.layers.xavier_initializer())
 
-# def binary_activation(x, threshold):
-#     cond = tf.less(x, tf.constant(threshold))
-#     out = tf.where(cond, tf.fill(tf.shape(x),1e-2), tf.fill(tf.shape(x),(1-(1e-2))))
-#     return out
+        return tf.add(tf.cast(net, tf.float32), tf.cast(input, tf.float32))
+
 
 def keep_prob(dropout, train):
     """
