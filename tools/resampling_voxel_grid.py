@@ -24,10 +24,9 @@ def repeat(x, n_repeats):
     x = np.matmul(np.reshape(x, (-1,1)), rep)
     return np.reshape(x, [-1])
 
-def interpolate_numpy(voxel, x,y,z, out_size):
+def np_interpolate(voxel, x,y,z, out_size):
     """
-    Trilinear interpolation. This function works for only 1 voxel grid at a time
-    TODO: expand to do deal with batch size
+    Trilinear interpolation for resampling after rotation. Work for batches of voxels
     :param voxel: The whole voxel grid
     :param x,y,z: indices of voxel
     :param output_size: output size of voxel
@@ -136,7 +135,7 @@ def interpolate_numpy(voxel, x,y,z, out_size):
 
     return output
 
-def voxel_meshgrid_numpy(width, depth, height, homogeneous=False):
+def np_voxel_meshgrid(width, depth, height, homogeneous=False):
     """
     Because 'ij' ordering is used for meshgrid, z_t and x_t are swapped (Think about order in 'xy' VS 'ij'
     The range for the meshgrid depends on the width/depth/height input
@@ -164,7 +163,7 @@ def voxel_meshgrid_numpy(width, depth, height, homogeneous=False):
 
     return grid
 
-def rotation_around_grid_centroid(azimuth, elevation, useX = True):
+def np_rotation_around_grid_centroid(azimuth, elevation):
     """
     This function returns a rotation matrix around a center with y-axis being the up vector.
     It first rotates the matrix by the azimuth angle (theta) around y, then around X-axis by elevation angle (gamma)
@@ -173,7 +172,6 @@ def rotation_around_grid_centroid(azimuth, elevation, useX = True):
     This function is suitable when the silhouette projection is done along the Z direction
     :param azimuth
     :param elevation
-    :param useX: Use when X axis and Z axis are swapped
     :return Rotation matrix around azimuth and along elevation
     """
 
@@ -192,19 +190,21 @@ def rotation_around_grid_centroid(azimuth, elevation, useX = True):
                      [0, 0, 1, 0],
                      [0, 0, 0, 1]])
 
-    #Rotation around X axis instead of Z because of the conversion that makes the azimuth 0 aligned with the X-axis
-    Rot_X = np.array([[1, 0, 0, 0],
-                     [0, np.cos(elevation), -np.sin(elevation), 0],
-                     [0, np.sin(elevation), np.cos(elevation), 0],
-                     [0, 0, 0, 1]])
-    if useX:
-        R = np.matmul(Rot_X, Rot_Y)
-    else:
-        R = np.matmul(Rot_Z, Rot_Y)
+    R = np.matmul(Rot_Z, Rot_Y)
 
     return R
 
-def resampling(voxel_array, transformation_matrix, size=64, new_size=80, nearest_neighbour= True):
+def np_resampling(voxel_array, transformation_matrix, size=64, new_size=80, nearest_neighbour= True):
+    """
+    Batch resampling function
+    :param voxel_array: Batch of voxels. Shape = [batch_size, height, width, depth, features]
+    :param transformation_matrix: Rotation matrix. Shape = [batch_size, height, width, depth, features]
+    :param size: Input size of voxel grid
+    :param new_size: Output size (usually bigger that input) to make sure the rotated input is not cut off
+    :param nearest_neighbour: If true, use nearest neightbour interpolation instead of trilinear
+    :return: transformed voxel grids with new_size
+    """
+
     #Resampling a voxel array after rotation using nearest neighbour
     batch_size = voxel_array.shape[0]
     target = np.zeros([new_size, new_size, new_size])
@@ -250,124 +250,143 @@ def resampling(voxel_array, transformation_matrix, size=64, new_size=80, nearest
                         target[u, v, w] = voxel_array[x, y, z]
     else:
         total_M = total_M[0:3, :] #Ignore the homogenous coordinate so the results are 3D vectors
-        grid = voxel_meshgrid_numpy(new_size, new_size, new_size, homogeneous=True)
+        grid = np_voxel_meshgrid(new_size, new_size, new_size, homogeneous=True)
         grid_transform = np.matmul(total_M, grid)
-        input_transformed = interpolate_numpy(voxel_array, grid_transform[0, :], grid_transform[1, :],
+        input_transformed = np_interpolate(voxel_array, grid_transform[0, :], grid_transform[1, :],
                                               grid_transform[2, :], [batch_size, new_size, new_size, new_size, 1])
         target= np.reshape(
             input_transformed, target.shape)
 
     return target
 
-def numpy_batch_rotation_resampling(voxel_array, view_params, radius=1.0, size=64, new_size=128):
-    def batch_rotation_around_grid_centroid(view_params, radius, useX=True):
-        """
-        :param view_params: batch of view parameters. Shape : [batch_size, 2]
-        :param radius:
-        :param useX: USe when X axis and Z axis are switched
-        :return:
-        """
-        # This function returns a rotation matrix around a center with y-axis being the up vector.
-        # It first rotates the matrix by the azimuth angle (theta) around y, then around X-axis by elevation angle (gamma)
-        # return a rotation matrix in homogenous coordinate
-        # The default Open GL camera is to looking towards the negative Z direction
-        # This function is suitable when the silhoutte projection is done along the Z direction
-        batch_size = view_params.shape[0]
-        azimuth = view_params[:, 0]
-        elevation = view_params[:, 1]
-        azimuth = -(azimuth + math.pi * 0.5)  # Convert azimuth to positive rotatation direction (right hand rule)
-        # so that azimuth at 0 aligns with X-axis, looking into the negative X axis
+def np_batch_rotation_resampling(voxel_array, view_params, size=64, new_size=128):
+    """
+    Rotate voxel grids
+    :param voxel_array: Voxel grids to rotate. Shape [batch_size, height, width, depth, channel]
+    :param view_params: Target pose (azimuth, elevation, scale) to transform to. Shape [batch_size, 3]
+    :param size: Size of the input voxel grid
+    :param new_size: Output size (usually bigger that input) to make sure the rotated input is not cut off
+    :return: transformed voxel grids with new_size
+    """
+    if view_params.shape[1] == 2:
+        M = np_batch_rotation_around_grid_centroid(view_params)
+        target = np_batch_resampling(voxel_array, M, size=size, new_size=new_size)
+    else:
+        M, S = np_batch_rotation_around_grid_centroid(view_params)
+        target = np_batch_resampling(voxel_array, M, Scale_matrix=S, size=size, new_size=new_size)
+    return target
+
+def np_batch_rotation_around_grid_centroid(view_params):
+    """
+    This function returns a rotation matrix around a center with y-axis being the up vector.
+    It first rotates the matrix by the azimuth angle (theta) around y, then around X-axis by elevation angle (gamma)
+    return a rotation matrix in homogenous coordinate
+    The default Open GL camera is to looking towards the negative Z direction
+    This function is suitable when the silhoutte projection is done along the Z direction
+    :param view_params: batch of view parameters. Shape : [batch_size, 2] (azimuth-elevation) or [batch_size, 3] (azimuth-elevation-scale)
+    :return: Rotation matrix around azimuth and along elevation
+    """
+    batch_size = view_params.shape[0]
+    azimuth = view_params[:, 0]
+    elevation = view_params[:, 1]
+    azimuth = -(azimuth + math.pi * 0.5)  # Convert azimuth to positive rotatation direction (right hand rule)
+    # so that azimuth at 0 aligns with X-axis, looking into the negative X axis
 
 
-        batch_Rot_Y = np.identity(4).reshape((1, 4, 4))
-        batch_Rot_Z = np.identity(4).reshape((1, 4, 4))
-        batch_Rot_Y = np.tile(batch_Rot_Y, (batch_size, 1, 1))
-        batch_Rot_Z = np.tile(batch_Rot_Z, (batch_size, 1, 1))
+    batch_Rot_Y = np.identity(4).reshape((1, 4, 4))
+    batch_Rot_Z = np.identity(4).reshape((1, 4, 4))
+    batch_Rot_Y = np.tile(batch_Rot_Y, (batch_size, 1, 1))
+    batch_Rot_Z = np.tile(batch_Rot_Z, (batch_size, 1, 1))
 
-        batch_Rot_Y[:, 0, 0] = np.cos(azimuth)
-        batch_Rot_Y[:, 0, 2] = np.sin(azimuth)
-        batch_Rot_Y[:, 2, 0] = -np.sin(azimuth)
-        batch_Rot_Y[:, 2, 2] = np.cos(azimuth)
+    batch_Rot_Y[:, 0, 0] = np.cos(azimuth)
+    batch_Rot_Y[:, 0, 2] = np.sin(azimuth)
+    batch_Rot_Y[:, 2, 0] = -np.sin(azimuth)
+    batch_Rot_Y[:, 2, 2] = np.cos(azimuth)
 
-        batch_Rot_Z[:, 0, 0] = np.cos(elevation)
-        batch_Rot_Z[:, 0, 1] = -np.sin(elevation)
-        batch_Rot_Z[:, 1, 0] = np.sin(elevation)
-        batch_Rot_Z[:, 1, 1] = np.cos(elevation)
+    batch_Rot_Z[:, 0, 0] = np.cos(elevation)
+    batch_Rot_Z[:, 0, 1] = -np.sin(elevation)
+    batch_Rot_Z[:, 1, 0] = np.sin(elevation)
+    batch_Rot_Z[:, 1, 1] = np.cos(elevation)
 
-        return np.matmul(batch_Rot_Z, batch_Rot_Y)
+    return np.matmul(batch_Rot_Z, batch_Rot_Y)
 
-    def batch_resampling(voxel_array, transformation_matrix, size=64, new_size=128, scale_factor = 0.5):
-        """
-        Batch resampling function
-        :param voxel_array: batch of voxels. Shape = [batch_size, height, width, depth, features]
-        :param transformation_matrix: Rotation matrix. Shape = [batch_size, height, width, depth, features]
-        :param size:
-        :param new_size:
-        :return:
-        """
+def np_batch_resampling(voxel_array, transformation_matrix, size=64, new_size=128, scale_factor = 0.5):
+    """
+    Batch resampling function
+    :param voxel_array: batch of voxels. Shape = [batch_size, height, width, depth, features]
+    :param transformation_matrix: Rotation matrix. Shape = [batch_size, height, width, depth, features]
+    :param size: Input size of voxel grid
+    :param new_size: Output size (usually bigger that input) to make sure the rotated input is not cut off
+    :return: transformed voxel grids with new_size
+    """
+    batch_size = np.shape(voxel_array)[0]
 
-        batch_size = np.shape(voxel_array)[0]
+    # Aligning the centroid of the object (voxel grid) to origin for rotation,
+    # then move the centroid back to the original position of the grid centroid
+    T = np.array([[1, 0, 0, -size * 0.5],
+                 [0, 1, 0, -size * 0.5],
+                 [0, 0, 1, -size * 0.5],
+                 [0, 0, 0, 1]])
+    T = np.tile(np.reshape(T, (1, 4, 4)), [batch_size, 1, 1])
 
-        # Aligning the centroid of the object (voxel grid) to origin for rotation,
-        # then move the centroid back to the original position of the grid centroid
-        T = np.array([[1, 0, 0, -size * 0.5],
-                     [0, 1, 0, -size * 0.5],
-                     [0, 0, 1, -size * 0.5],
-                     [0, 0, 0, 1]])
-        T = np.tile(np.reshape(T, (1, 4, 4)), [batch_size, 1, 1])
+    # However, since the rotated grid might be out of bound for the original grid size,
+    # move the rotated grid to a new bigger grid
+    T_new_inv = np.array([[1, 0, 0, new_size * 0.5],
+                          [0, 1, 0, new_size * 0.5],
+                          [0, 0, 1, new_size * 0.5],
+                          [0, 0, 0, 1]])
 
-        # However, since the rotated grid might be out of bound for the original grid size,
-        # move the rotated grid to a new bigger grid
-        T_new_inv = np.array([[1, 0, 0, new_size * 0.5],
-                              [0, 1, 0, new_size * 0.5],
-                              [0, 0, 1, new_size * 0.5],
-                              [0, 0, 0, 1]])
+    T_new_inv = np.tile(np.reshape(T_new_inv, (1, 4, 4)), [batch_size, 1, 1])
 
-        T_new_inv = np.tile(np.reshape(T_new_inv, (1, 4, 4)), [batch_size, 1, 1])
+    R = np.array([[scale_factor, 0, 0, 0],
+                  [0, scale_factor, 0, 0],
+                  [0, 0, scale_factor, 0],
+                  [0, 0, 0, 1]])
+    R = np.tile(np.reshape(R, (1, 4, 4)), [batch_size, 1, 1])
 
-        R = np.array([[scale_factor, 0, 0, 0],
-                      [0, scale_factor, 0, 0],
-                      [0, 0, scale_factor, 0],
-                      [0, 0, 0, 1]])
-        R = np.tile(np.reshape(R, (1, 4, 4)), [batch_size, 1, 1])
+    total_M = np.matmul(np.matmul(np.matmul(T_new_inv, R), transformation_matrix), T)
+    total_M = np.linalg.inv(total_M)
+    total_M = total_M[:, :3, :]
 
-        total_M = np.matmul(np.matmul(np.matmul(T_new_inv, R), transformation_matrix), T)
-        total_M = np.linalg.inv(total_M)
-        total_M = total_M[:, :3, :]
+    grid = np.expand_dims(np_voxel_meshgrid(new_size, new_size, new_size, homogeneous=True), axis = 0)
+    grid = np.tile(grid, [batch_size, 1, 1])
+    grid_transform = np.matmul(total_M, grid)
+    x_s_flat =  grid_transform[:, 0, :].reshape([-1])
+    y_s_flat =  grid_transform[:, 1, :].reshape([-1])
+    z_s_flat =  grid_transform[:, 2, :].reshape([-1])
+    start = time.time()
+    input_transformed = np_interpolate(voxel_array, x_s_flat, y_s_flat, z_s_flat,
+                                          [batch_size, new_size, new_size, new_size, 1])
 
-        grid = np.expand_dims(voxel_meshgrid_numpy(new_size, new_size, new_size, homogeneous=True), axis = 0)
-        grid = np.tile(grid, [batch_size, 1, 1])
-        grid_transform = np.matmul(total_M, grid)
-        x_s_flat =  grid_transform[:, 0, :].reshape([-1])
-        y_s_flat =  grid_transform[:, 1, :].reshape([-1])
-        z_s_flat =  grid_transform[:, 2, :].reshape([-1])
-        start = time.time()
-        input_transformed = interpolate_numpy(voxel_array, x_s_flat, y_s_flat, z_s_flat,
-                                              [batch_size, new_size, new_size, new_size, 1])
-        print(time.time() - start)
-        target = np.reshape(input_transformed, [batch_size, new_size, new_size, new_size, 1])
+    target = np.reshape(input_transformed, [batch_size, new_size, new_size, new_size, 1])
 
-        return target
+    return target
 
-def projection(voxel_array, size=64):
-    sil=np.max(voxel_array, axis= 2)
+def projection(voxel_array):
+    """
+    Compute the silhouette of the voxel_array
+    :param voxel_array:  voxel grid to compute the silhouette. Shape [height, width, depth, channel]
+    :return silhouette maps. Shape [height, width, channel]
+    """
+    sil = np.max(voxel_array, axis= 2)
     #Transposing and inverse the X axis of the array, otherwise the X an Y axis of the image will be swapped
     # due to the mismatch between OpenGL coordinates and image coordinaates
-    # sil = sil.T
-    # sil = sil[::-1, :]
+    sil = sil.T
+    sil = sil[::-1, :]
     return sil
 
 def tf_repeat(x, n_repeats):
     """
-    Repeat X for n_repeats time along 0 axis
-    Return a 1D tensor of total number of elements
+    Repeat X for n_repeats time along 0 axis. Similat to numpy repeat
+    :param x: item to reeat
+    :param n_repeats: numer of repetition
+    :return a 1D tensor of total number of elements
     """
     rep = tf.ones(shape=[1, n_repeats], dtype = 'int32')
     x = tf.matmul(tf.reshape(x, (-1,1)), rep)
     return tf.reshape(x, [-1])
 
 def tf_interpolate(voxel, x, y, z, out_size):
-
     """
     Trilinear interpolation for resampling after rotation. Work for batches of voxels
     :param voxel: The whole voxel grid
@@ -501,7 +520,7 @@ def tf_voxel_meshgrid(height, width, depth, homogeneous=False):
             grid = tf.concat([grid, ones], axis = 0)
         return grid
 
-def tf_rotation_around_grid_centroid(view_params, useX = True, shapenet_viewer = False):
+def tf_rotation_around_grid_centroid(view_params):
     """
     This function returns a rotation matrix around a center with y-axis being the up vector.
     It first rotates the matrix by the azimuth angle (theta) around y, then around X-axis by elevation angle (gamma)
@@ -509,22 +528,13 @@ def tf_rotation_around_grid_centroid(view_params, useX = True, shapenet_viewer =
     The default Open GL camera is to looking towards the negative Z direction
     This function is suitable when the silhoutte projection is done along the Z direction
     :param view_params: batch of view parameters. Shape : [batch_size, 2] (azimuth-elevation) or [batch_size, 3] (azimuth-elevation-scale)
-    :param useX: Use when X axis and Z axis are swapped
     :return: Rotation matrix around azimuth and along elevation
     """
-    #This function returns a rotation matrix around a center with y-axis being the up vector.
-    #It first rotates the matrix by the azimuth angle (theta) around y, then around X-axis by elevation angle (gamma)
-    #return a rotation matrix in homogenous coordinate
-    #The default Open GL camera is to looking towards the negative Z direction
-    #This function is suitable when the silhoutte projection is done along the Z direction
-    batch_size = tf.shape(view_params)[0]
 
+    batch_size = tf.shape(view_params)[0]
     azimuth    = tf.reshape(view_params[:, 0], (batch_size, 1, 1))
     elevation  = tf.reshape(view_params[:, 1], (batch_size, 1, 1))
-
-    # azimuth = azimuth
-    if shapenet_viewer == False:
-        azimuth = (azimuth - tf.constant(math.pi * 0.5))
+    azimuth = (azimuth - tf.constant(math.pi * 0.5)) #Ofset azimuth by -90 degree to match with VTk coordinate system
 
     #========================================================
     #Because tensorflow does not allow tensor item replacement
@@ -545,20 +555,12 @@ def tf_rotation_around_grid_centroid(view_params, useX = True, shapenet_viewer =
         tf.concat([zeros, zeros, ones,  zeros], axis=2),
         tf.concat([zeros, zeros, zeros, ones], axis=2)], axis=1)
 
-    #Batch Rotation X matrixes
-
-    batch_Rot_X = tf.concat([
-        tf.concat([ones,  zeros,  zeros, zeros], axis=2),
-        tf.concat([zeros, tf.cos(elevation),  -tf.sin(elevation), zeros], axis=2),
-        tf.concat([zeros, tf.sin(elevation),  tf.cos(elevation),  zeros], axis=2),
-        tf.concat([zeros, zeros,  zeros, ones], axis=2)], axis=1)
-
     transformation_matrix = tf.matmul(batch_Rot_Z, batch_Rot_Y)
     if tf.shape(view_params)[1] == 2:
-        #Check if theres scaling
+        #Check if there is scaling, if not, return transformation_matrix as it is
         return transformation_matrix
     else:
-    #Batch Scale matrixes:
+        #Batch Scale matrixes:
         scale = tf.reshape(view_params[:, 2], (batch_size, 1, 1))
         batch_Scale= tf.concat([
             tf.concat([scale,  zeros,  zeros, zeros], axis=2),
@@ -572,9 +574,9 @@ def tf_resampling(voxel_array, transformation_matrix, Scale_matrix = None, size=
     Batch resampling function
     :param voxel_array: batch of voxels. Shape = [batch_size, height, width, depth, features]
     :param transformation_matrix: Rotation matrix. Shape = [batch_size, height, width, depth, features]
-    :param size:
-    :param new_size:
-    :return:
+    :param size: Input size of voxel grid
+    :param new_size: Output size (usually bigger that input) to make sure the rotated input is not cut off
+    :return: transformed voxel grids with new_size
     """
 
     batch_size = tf.shape(voxel_array)[0]
@@ -597,21 +599,13 @@ def tf_resampling(voxel_array, transformation_matrix, Scale_matrix = None, size=
                     [0,0,0,1]])
     T_new_inv = tf.tile(tf.reshape(T_new_inv, (1, 4, 4)), [batch_size, 1, 1])
 
-    # Scale_matrix = tf.constant([[1.,0,0, 0],
-    #                 [0,1.,0, 0],
-    #                 [0,0,1., 0],
-    #                 [0,0,0,1.]])
-    # Scale_matrix = tf.tile(tf.reshape(Scale_matrix, (1, 4, 4)), [batch_size, 1, 1])
 
-
-    # total_M = tf.matmul(tf.matmul(T_new_inv, transformation_matrix), T)
     if Scale_matrix is None:
         total_M = tf.matmul(tf.matmul(T_new_inv, transformation_matrix), T)
     else:
         total_M = tf.matmul(tf.matmul(tf.matmul(T_new_inv, Scale_matrix), transformation_matrix), T)
     try:
         total_M = tf.matrix_inverse(total_M)
-
         total_M = total_M[:, 0:3, :] #Ignore the homogenous coordinate so the results are 3D vectors
         grid = tf_voxel_meshgrid(new_size, new_size, new_size, homogeneous=True)
         grid = tf.tile(tf.reshape(grid, (1, tf.to_int32(grid.get_shape()[0]) , tf.to_int32(grid.get_shape()[1]))), [batch_size, 1, 1])
@@ -626,111 +620,22 @@ def tf_resampling(voxel_array, transformation_matrix, Scale_matrix = None, size=
     except tf.InvalidArgumentError:
         return None
 
-def tf_rotation_resampling(voxel_array, view_params,  size=64, new_size=128, shapenet_viewer = False):
+def tf_rotation_resampling(voxel_array, view_params, size=64, new_size=128):
+    """
+    Rotate voxel grids
+    :param voxel_array: Voxel grids to rotate. Shape [batch_size, height, width, depth, channel]
+    :param view_params: Target pose (azimuth, elevation, scale) to transform to. Shape [batch_size, 3]
+    :param size: Size of the input voxel grid
+    :param new_size: Output size (usually bigger that input) to make sure the rotated input is not cut off
+    :return: transformed voxel grids with new_size
+    """
     if tf.shape(view_params)[1] == 2:
-        M = tf_rotation_around_grid_centroid(view_params, useX=True, shapenet_viewer= shapenet_viewer)
+        M = tf_rotation_around_grid_centroid(view_params)
         target = tf_resampling(voxel_array, M, size=size, new_size=new_size)
     else:
-        M, S = tf_rotation_around_grid_centroid(view_params, useX=True, shapenet_viewer=shapenet_viewer)
-        target = tf_resampling(voxel_array, M, Scale_matrix=S, size = size, new_size=new_size)
+        M, S = tf_rotation_around_grid_centroid(view_params)
+        target = tf_resampling(voxel_array, M, Scale_matrix=S, size=size, new_size=new_size)
     return target
 
-if __name__ == "__main__":
-    # with np.load(r"D:\Projects\SymmetryVAE\Results\180308_voxel_gradient_3views_fixBeta_Initialise to 0.5\1000.txt.npz") as data:
-    #     mod = data['arr_0']
-    #     # utils.save_binvox(mod > 0.7, os.path.join(SAMPLE_SAVE, "0.7.binvox"))
-    #     mod = mod.reshape(1, 64, 64, 64, 1)
-    # thetaCount = 4
-    # phiCount = 12
-    # with open(path, "rb") as fp:
-    #     binvox = binvox_rw.read_as_3d_array(fp).data.astype(np.float32).reshape([1, 64, 64, 64, 1])
-    #
-    #     for i in range(phiCount):
-    #         for j in range(1, thetaCount):
-    #             theta = j * (15.0 * math.pi / 180.0)  # Polar angle
-    #             phi = i / phiCount * math.pi * 2.0;  # Azimth angle
-    #
-    #             the_degree = theta * 180.0 / math.pi
-    #             phi_degree = phi * 180.0 / math.pi
-    #             print("the " + str(the_degree))
-    #             print ("phi "+str(phi_degree))
-    #
-    #             azimuth = i * 15.0 * math.pi / 180.0
-    #             elevation =  j * 15.0 * math.pi / 180.0
-    #
-    #
-    #             print("azimuth " + str(azimuth))
-    #             print("elevation " + str(elevation))
-    #
-    #             M = rotation_around_grid_centroid(azimuth, elevation, radius = 1.0, useX=False)
-    #             # target = resampling(binvox.reshape([64, 64, 64]), M, new_size=128, nearest_neighbour=True)
-    #             target = resampling(binvox, M, new_size=128, nearest_neighbour=False)
-    #             print(target.shape)
-    #
-    #             utils.save_binvox(target>0, "D:\debug_{0}_{1}.binvox".format(i, j))
-    #
-    #             sil=projection(target)
-    #             print(sil.shape)
-    #             scipy.misc.imsave("D:/sil_{0}_{1}.png".format(i,j), sil)
-    # #
-    path = r"D:\Data_sets\ShapeNetCore_v2\ShapeNet64_Chair\ShapeNet64_Chair_binvox_2_centered\model_chair_102_clean.binvox"
-    with open(path, "rb") as fp:
-        mod= binvox_rw.read_as_3d_array(fp).data.astype(np.float32).reshape([1, 64, 64, 64, 1])
-    #
-    # binvox = np.tile(binvox1, [1, 1,1,1,1])
-    # view_params = np.zeros([binvox.shape[0], 2])
-    #
-    # azimuth = 2.0 * 15.0 * math.pi / 180.0
-    # elevation = 1.0 * 15.0 * math.pi / 180.0
-    #
-    # for i in range(binvox.shape[0]):
-    #     view_params[i] = np.array([azimuth, elevation])
-    # # view_params = np.array([[ 5.23598776,  0.52359878],[4.45058959,  0.26179939]])
-    #
-    #
-    #
-    # target = numpy_batch_rotation_resampling(binvox, view_params)>0.0
-    # for i in range(binvox.shape[0]):
-    #      utils.save_binvox(target[i].reshape((128, 128, 128)), "D:/scaling_0.25.binvox".format(i))
 
-    import binvox_rw
-    import tensorflow as tf
-    import utils
-    from model_util import transform_voxel_to_match_image
-
-    # with open(r"D:\Data_sets\ShapeNetCore_v2\ShapeNet64_Chair\ShapeNet64_Chair_binvox_3_centered\model_normalized_25_clean.binvox",
-    #         'rb') as fp:
-    #     shape_in = binvox_rw.read_as_3d_array(fp).data
-    #     # t = np.transpose(tensor, [0, 2, 1])
-    #     # return t
-    #     # # return t[::-1, ::-1, :]
-    #
-    #
-    #     shape_in = shape_in.reshape([1,64,64,64,1])
-    #     print(shape_in.shape)
-    # temp = np.arange(0, 180, 30)
-    # # params = np.array([[180* math.pi / 180, 45 * math.pi / 180, 3.3 / 3.3]])
-    # # temp = 90 - temp
-    # sample = 6
-    # params = np.zeros((sample, 3))
-    # shape_all  = np.tile(shape_in, (sample, 1, 1, 1, 1))
-    # print(shape_all.shape)
-    # for i in range(sample):
-    #     params[i] = np.array([temp[i] * math.pi/180., 45 * math.pi/180, 3.3/3.3])
-    #
-
-    real_model_in = tf.placeholder(shape=[None, 64, 64, 64, 1], dtype=tf.float32)  # Real 3D voxel objects
-    params_in = tf.placeholder(shape=[None, 3], dtype=tf.float32)
-    target = tf_rotation_resampling(real_model_in, params_in)
-    target = transform_voxel_to_match_image(target)
-    a = np.expand_dims(np.array([90 * math.pi / 180, 0., 3.3 / 3.3]), axis=0)
-
-    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-        for i in range(4):
-            a = np.expand_dims(np.array([(30 + i * 90) * math.pi / 180, 0., 3.3 / 3.3]), axis=0)
-            vox = sess.run(target, feed_dict={real_model_in: mod, params_in : a})
-            vox = vox.reshape((-1, 128, 128, 128))
-            sil = projection(vox[0], 128)
-            scipy.misc.imsave("D:/sil_{0}.png".format(i), sil)
-            binvox_rw.save_binvox(vox[0]> 0.1, "D:/128_none.binvox")
 

@@ -9,11 +9,6 @@ import json
 import random
 import shutil
 
-# # Add additional import paths.
-# sys.path.append(code_path)
-# sys.path.append(os.path.join(code_path, 'model_train'))
-# sys.path.append(os.path.join(code_path, 'Visualisation VTK'))
-
 from tools.model_util import tf_transform_voxel_to_match_image, tf_random_crop_voxel_image
 from tools.layer_util import keep_prob, conv3d, prelu, res_block_2d, res_block_3d, projection_unit
 from tools.data_util import data_loader
@@ -28,8 +23,7 @@ IMAGE_PATH_VALID = cfg['image_path_valid']
 MODEL_PATH       = cfg['model_path']
 SAMPLE_SAVE = cfg['sample_save']
 MODEL_SAVE  = os.path.join(SAMPLE_SAVE, cfg['trained_model_name'])
-LOGDIR = os.path.join(SAMPLE_SAVE, "log")
-
+LOGDIR = SAMPLE_SAVE + "/log"
 os.environ["CUDA_VISIBLE_DEVICES"] = "{0}".format(cfg['gpu'])
 
 
@@ -264,7 +258,9 @@ with sv.managed_session(config=sess_config) as sess:
                                     scipy.misc.imsave(os.path.join(SAMPLE_SAVE, "{0}_train_{1}_patch.png".format(batch_names[idx], step)), np.squeeze(rendered_samples[idx]))
 
 
-                    # # #
+                    #===================================================================================================
+                    #Validation
+                    #===================================================================================================
                     save_path = sess_saver.save(sess, MODEL_SAVE)
                     if cfg['is_greyscale'].lower() == "true":
                         valid_loader = data_loader(cfg, img_path=IMAGE_PATH,
