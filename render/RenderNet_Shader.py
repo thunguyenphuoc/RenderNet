@@ -14,6 +14,7 @@ from tools.layer_util import keep_prob, conv3d, prelu, res_block_2d, res_block_3
 from tools.data_util import data_loader
 from tools.resampling_voxel_grid import tf_rotation_resampling
 
+#=======================================================================================================================
 
 with open(sys.argv[1], 'r') as fh:
     cfg = json.load(fh)
@@ -26,6 +27,7 @@ MODEL_SAVE  = os.path.join(SAMPLE_SAVE, cfg['trained_model_name'])
 LOGDIR = SAMPLE_SAVE + "/log"
 os.environ["CUDA_VISIBLE_DEVICES"] = "{0}".format(cfg['gpu'])
 
+#=======================================================================================================================
 
 def RenderNet(models_in, is_training, prob = 0.75, reuse =False):
     with tf.variable_scope("encoder"):
@@ -61,14 +63,7 @@ def RenderNet(models_in, is_training, prob = 0.75, reuse =False):
             enc3_skip = conv3d(res1_10, 32, kernel_size=[3, 3, 3], stride=[1, 1, 1], pad="SAME", scope="con1_3X3", weight_initializer_type=tf.contrib.layers.xavier_initializer())
             enc3_skip = tf.add(tf.cast(enc3_skip, tf.float32), tf.cast(shortcut, tf.float32))
 
-        # height = tf.shape(enc3_skip)[1]
-        # width = tf.shape(enc3_skip)[2]
-        # #Collapsing Z dimension
-        # enc3_2d = tf.reshape(enc3_skip, [batch_size, height, width, 32 * 32])
-        #
-        # with tf.variable_scope('e_conv4'):
-        #     enc4 = prelu(slim.conv2d(inputs=enc3_2d, num_outputs = 32 * 32, kernel_size=1, activation_fn=None, scope='e_conv4'))
-        #     enc4 = tf.nn.dropout(enc4, keep_prob(prob, is_training))
+
         enc4 = projection_unit(enc3_skip)
 
         shortcut = enc4

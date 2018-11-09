@@ -8,13 +8,13 @@ import json
 import random
 import shutil
 
-from tools.model_util import tf_transform_voxel_to_match_image, tf_random_crop_voxel_texture_image_normal, load_weights
+from tools.model_util import tf_transform_voxel_to_match_image, tf_random_crop_voxel_texture_image_normal
 from tools.data_util import data_loader_image_texture_normal_face
 from tools.layer_util import conv3d_transpose, conv3d, prelu, fully_connected, conv2d, conv2d_transpose, res_block_3d, res_block_2d, keep_prob, projection_unit
 from tools.resampling_voxel_grid import tf_rotation_resampling
 
-
 #=======================================================================================================================
+
 with open(sys.argv[1], 'r') as fh:
     cfg = json.load(fh)
 
@@ -25,20 +25,20 @@ TEXTURE_PATH     = cfg['texture_path']
 MODEL_PATH       = cfg['model_path']
 SAMPLE_SAVE      = cfg['sample_save']
 MODEL_SAVE       = os.path.join(SAMPLE_SAVE, cfg['trained_model_name'])
-LOGDIR           = os.path.join(SAMPLE_SAVE, "log")
-
+LOGDIR = SAMPLE_SAVE + "/log"
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "{0}".format(cfg['gpu'])
+
 #=======================================================================================================================
 
 def decoder_texture(z_in):
     with tf.variable_scope("texture_encoder"):
         batch_size = tf.shape(z_in)[0]
         with tf.variable_scope('e_tex_fc1'):
-            zP = prelu((fully_connected(z_in, 4 * 4 * 4 * 512)))
-            z_resize = tf.reshape(zP, [batch_size, 32, 32, 32, 4])
+            zP = prelu((fully_connected(z_in, 32 * 32 * 32 * 4)))
+            z_resized = tf.reshape(zP, [batch_size, 32, 32, 32, 4])
         with tf.variable_scope('e_tex_conv0'):
-            conv0 = prelu(conv3d_transpose(z_resize, 4, kernel_size=[4, 4, 4], stride=[1, 1, 1]))
+            conv0 = prelu(conv3d_transpose(z_resized, 4, kernel_size=[4, 4, 4], stride=[1, 1, 1]))
         with tf.variable_scope('e_tex_conv1'):
             conv1 = prelu(conv3d_transpose(conv0, 8, kernel_size=[4, 4, 4], stride=[2, 2, 2]))
         with tf.variable_scope('e_tex_conv2'):
@@ -49,17 +49,17 @@ def RenderNet(models_in, prob = 0.75, reuse=False):
     batch_size = tf.shape(models_in)[0]
     with tf.variable_scope("encoder"):
         with tf.variable_scope('e_conv1'):
-            enc1 = prelu(conv3d(models_in, 16, kernel_size=[5, 5, 5], stride=[2, 2, 2],
+            enc1 = prelu(conv3d(models_in, 8, kernel_size=[5, 5, 5], stride=[2, 2, 2],
                                  reuse=reuse, pad="SAME", scope='e_conv1',
                                  weight_initializer_type=tf.contrib.layers.xavier_initializer()))
             enc1 = tf.nn.dropout(enc1, keep_prob(prob, is_training))
         with tf.variable_scope('e_conv2'):
-            enc2 = prelu(conv3d(enc1, 32, kernel_size=[3, 3, 3], stride=[1, 1, 2],
+            enc2 = prelu(conv3d(enc1, 16, kernel_size=[3, 3, 3], stride=[1, 1, 2],
                                 reuse=reuse, pad="SAME", scope='e_conv2',
                                 weight_initializer_type=tf.contrib.layers.xavier_initializer()))
             enc2 = tf.nn.dropout(enc2, keep_prob(prob, is_training))
         with tf.variable_scope('e_conv3'):
-            enc3 = prelu(conv3d(enc2, 32, kernel_size=[3, 3, 3], stride=[1, 1, 1],
+            enc3 = prelu(conv3d(enc2, 16, kernel_size=[3, 3, 3], stride=[1, 1, 1],
                                 reuse=reuse, pad="SAME", scope='e_conv3',
                                 weight_initializer_type=tf.contrib.layers.xavier_initializer()))
             enc3 = tf.nn.dropout(enc3, keep_prob(prob, is_training))
@@ -79,20 +79,8 @@ def RenderNet(models_in, prob = 0.75, reuse=False):
             enc3_skip = conv3d(res1_10, 16, kernel_size=[3, 3, 3], stride=[1, 1, 1], pad="SAME", scope="con1_3X3", weight_initializer_type=tf.contrib.layers.xavier_initializer())
             enc3_skip = tf.add(tf.cast(enc3_skip, tf.float32), tf.cast(shortcut, tf.float32))
 
-        # #===============================================================================================================
-        # #PROJECTION UNIT
-        # #===============================================================================================================
-        # #Collapsing Z dimension
-        # height = tf.shape(enc3_skip)[1]
-        # width = tf.shape(enc3_skip)[2]
-        # enc3_2d = tf.reshape(enc3_skip, [batch_size, height, width, 32 * 16])
-        # #Followed by 1x1 convolution
-        # with tf.variable_scope('e_conv4'):
-        #     enc4 = prelu(conv2d(enc3_2d, 32 * 16, kernel_size=[1, 1], stride=[1, 1], scope='e_conv4', weight_initializer_type=tf.contrib.layers.xavier_initializer()))
-        #     enc4 = tf.nn.dropout(enc4, keep_prob(prob, is_training))
-        # #===============================================================================================================
-
         enc4 = projection_unit(enc3_skip)
+
         shortcut = enc4
         res2_1 = res_block_2d(enc4, 32 * 16, scope='res2_1')
         res2_2 = res_block_2d(res2_1, 32 * 16, scope='res2_2')
@@ -174,13 +162,13 @@ with graph.as_default():
     patch_size_in = tf.placeholder(tf.int32, [], name="patch_size")
 
     #Rotate and resample 3D input
-    rotated_models = tf_rotation_resampling(model_in, param_in, new_size = new_res, shapenet_viewer=cfg['shapenet_viewer'])
+    rotated_models = tf_rotation_resampling(model_in, param_in, new_size = new_res)
     rotated_models = tf_transform_voxel_to_match_image(rotated_models) #Transform voxel array to match image array (ijk -> xyz)
 
     #Create 3D representation of the texture of the vector input
     texture_decoded = decoder_texture (z_in=texture_in)
     #Rotate and resample 3D input
-    texture_rotated = tf_rotation_resampling(texture_decoded, param_in, new_size = new_res, shapenet_viewer=cfg['shapenet_viewer'])
+    texture_rotated = tf_rotation_resampling(texture_decoded, param_in, new_size = new_res)
     texture_rotated = tf_transform_voxel_to_match_image(texture_rotated)
 
     #Crop voxel gris and images for patch training
@@ -257,6 +245,13 @@ with sv.managed_session(config=sess_config) as sess:
                         num_batches = len(real_images) // cfg['batch_size']
                         print("Start stepping" + str(time.time() - chunk_start))
                         for idx in range(num_batches):
+                            step_start = time.time()
+                            batch_models = real_models[idx * cfg['batch_size']:(idx + 1) * cfg['batch_size']]
+                            batch_images = real_images[idx * cfg['batch_size']:(idx + 1) * cfg['batch_size']]
+                            batch_normals = real_normals[idx * cfg['batch_size']:(idx + 1) * cfg['batch_size']]
+                            batch_texture = real_texture[idx * cfg['batch_size']:(idx + 1) * cfg['batch_size']]
+                            batch_names  = real_names[idx * cfg['batch_size']:(idx + 1) * cfg['batch_size']]
+                            batch_params = real_params[idx * cfg['batch_size']:(idx + 1) * cfg['batch_size']]
                             feed_train = {model_in: batch_models,
                                     image_in: batch_images,
                                     normal_in: batch_normals,
@@ -265,13 +260,6 @@ with sv.managed_session(config=sess_config) as sess:
                                     patch_size_in: batch_patch_size,
                                     is_training: True}
 
-                            step_start = time.time()
-                            batch_models = real_models[idx * cfg['batch_size']:(idx + 1) * cfg['batch_size']]
-                            batch_images = real_images[idx * cfg['batch_size']:(idx + 1) * cfg['batch_size']]
-                            batch_normals = real_normals[idx * cfg['batch_size']:(idx + 1) * cfg['batch_size']]
-                            batch_texture = real_texture[idx * cfg['batch_size']:(idx + 1) * cfg['batch_size']]
-                            batch_names  = real_names[idx * cfg['batch_size']:(idx + 1) * cfg['batch_size']]
-                            batch_params = real_params[idx * cfg['batch_size']:(idx + 1) * cfg['batch_size']]
                             train, summary, step = sess.run([optimizer, merged_summary_op, global_step], feed_dict = feed_train)
                             train_writer.add_summary(summary, global_step=step)
                             print("Time/step" + str(time.time() - step_start))
@@ -291,14 +279,17 @@ with sv.managed_session(config=sess_config) as sess:
                                     scipy.misc.imsave(os.path.join(SAMPLE_SAVE, "{0}_train_{1}_patch.png".format(batch_names[idx], step)), rendered_samples[idx])
                                     scipy.misc.imsave(os.path.join(SAMPLE_SAVE, "{0}_train_{1}_patch_normal.png".format(batch_names[idx],step)), rendered_normals[idx])
                         print("Time/chunk " + str(time.time() - chunk_start))
-                    # # #
+
+
+                    #===================================================================================================
+                    #Validation
+                    #===================================================================================================
                     save_path = sess_saver.save(sess, MODEL_SAVE)
-                    # # if epoch % 200 == 0:
+
                     valid_loader = data_loader_image_texture_normal_face(cfg, img_path=IMAGE_PATH_VALID, normal_path=NORMAL_PATH,
                                                model_path=MODEL_PATH, texture_path=TEXTURE_PATH,
                                                validation_mode=True,
                                                img_res=512)
-
                     counter = 0
                     L1_valid = 0.
                     for real_images, real_normals, real_models, real_texture,  real_params, real_names in valid_loader:
