@@ -50,6 +50,7 @@ def render(azimuth, elevation, radius, sess, voxel, light_dir,
                                          "patch_size:0": 128,
                                          "is_training:0": False})
   # Create phong shaded images
+
   img_phong = Phong_shading.np_phong_composite(rendered_samples,
                                  light_dir, LIGHT_COL,
                                  AMBIENT_IN, K_DIFFUSE)
