@@ -567,7 +567,7 @@ def tf_rotation_around_grid_centroid(view_params):
             tf.concat([zeros, scale,  zeros, zeros], axis=2),
             tf.concat([zeros, zeros,  scale,  zeros], axis=2),
             tf.concat([zeros, zeros,  zeros, ones], axis=2)], axis=1)
-    return transformation_matrix, batch_Scale
+        return transformation_matrix, batch_Scale
 
 def tf_resampling(voxel_array, transformation_matrix, Scale_matrix = None, size=64, new_size=128):
     """
@@ -584,19 +584,19 @@ def tf_resampling(voxel_array, transformation_matrix, Scale_matrix = None, size=
     target = tf.zeros([ batch_size, new_size, new_size, new_size])
     #Aligning the centroid of the object (voxel grid) to origin for rotation,
     #then move the centroid back to the original position of the grid centroid
-    T = tf.constant([[1,0,0, -size * 0.5],
-                  [0,1,0, -size * 0.5],
-                  [0,0,1, -size * 0.5],
-                  [0,0,0,1]])
+    T = tf.constant([[1, 0, 0, -size * 0.5],
+                     [0, 1, 0, -size * 0.5],
+                     [0, 0, 1, -size * 0.5],
+                     [0, 0, 0, 1]])
     T = tf.tile(tf.reshape(T, (1, 4, 4)), [batch_size, 1, 1])
 
 
     #However, since the rotated grid might be out of bound for the original grid size,
     #move the rotated grid to a new bigger grid
-    T_new_inv = tf.constant([[1,0,0, new_size * 0.5],
-                    [0,1,0, new_size * 0.5],
-                    [0,0,1, new_size * 0.5],
-                    [0,0,0,1]])
+    T_new_inv = tf.constant([[1, 0, 0, new_size * 0.5],
+                             [0, 1, 0, new_size * 0.5],
+                             [0, 0, 1, new_size * 0.5],
+                             [0, 0, 0, 1]])
     T_new_inv = tf.tile(tf.reshape(T_new_inv, (1, 4, 4)), [batch_size, 1, 1])
 
 
@@ -635,6 +635,7 @@ def tf_rotation_resampling(voxel_array, view_params, size=64, new_size=128):
     else:
         M, S = tf_rotation_around_grid_centroid(view_params)
         target = tf_resampling(voxel_array, M, Scale_matrix=S, size=size, new_size=new_size)
+
     return target
 
 
