@@ -1,0 +1,17 @@
+{
+  "image_path": "./data/RenderNet/debug_size_1_contour_scale_512.tar",
+  "image_path_valid": "./data/RenderNet/debug_size_1_contour_scale_512.tar",
+  "model_path": "./data/ShapeNet64_Chair_binvox_2_centered",
+  "is_greyscale": "True",
+  "gpu":0,
+  "batch_size":1,
+  "max_epochs":1000,
+  "batches_chunk": 1,
+  "threshold":0.1,
+  "e_eta":0.00001,
+  "keep_prob":1.0,
+  "decay_steps":100000,
+  "trained_model_name":"3d2d_renderer",
+  "sample_save": "./shader_test_contour",
+  "checkpoint_secs":7200
+}

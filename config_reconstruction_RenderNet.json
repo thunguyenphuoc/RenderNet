@@ -1,0 +1,23 @@
+{
+  "target_albedo": "./data/ply80055_p303_t108_r3.3_albedo.png",
+  "target_normal": "./data/ply80055_p303_t108_r3.3_normal.png",
+  "target_azimuth_light":294,
+  "target_elevation_light":105,
+  "weight_dir": "D:/Results/RenderNet/180513_3D2D_FACE_NORMAL_PretrainedWeights",
+  "weight_dir_decoder": "D:/Projects/symmetryvae/Data/BaselFace/180513_3DAE_FACE_PretrainedWeights",
+  "gpu":0,
+  "batch_size": 5,
+  "z_dim":200,
+  "inner_step": 200,
+  "max_epochs":10,
+  "threshold":0.1,
+  "shape_eta":0.8,
+  "pose_eta":0.01,
+  "tex_eta":0.8,
+  "light_eta":0.4,
+  "keep_prob":1.0,
+  "decay_steps":90000,
+  "trained_model_name":"RenderNet_recon",
+  "sample_save": "./shader_test_texture",
+  "checkpoint_secs":7200
+}
