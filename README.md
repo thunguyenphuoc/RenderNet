@@ -10,6 +10,7 @@ __All these objects are rendered with the same network__
     <td width="23%"><img src="images/tyra.gif" alt="tyra" /></td>
   </tr>
 </table></p>
+
 [RenderNet: A deep convolutional network for differentiable rendering from 3D shapes](https://www.monkeyoverflow.com/#/rendernet-a-cnn-for-differentiable-rendering-from-3d-shapes/)  
 [Thu Nguyen-Phuoc](https://monkeyoverflow.com), [Chuan Li](https://lambdalabs.com/blog/author/chuan/), [Stephen Balaban](https://lambdalabs.com/), [Yong-liang Yang](http://yongliangyang.net/)  
 (To appear) Neural Information Processing Systems 2018   
