@@ -11,10 +11,10 @@ __All these objects are rendered with the same network__
   </tr>
 </table></p>
 
-[RenderNet: A deep convolutional network for differentiable rendering from 3D shapes](https://www.monkeyoverflow.com/#/rendernet-a-cnn-for-differentiable-rendering-from-3d-shapes/)  
+[**RenderNet: A deep convolutional network for differentiable rendering from 3D shapes**](https://www.monkeyoverflow.com/#/rendernet-a-cnn-for-differentiable-rendering-from-3d-shapes/)  
  [Thu Nguyen-Phuoc](https://monkeyoverflow.com/about/),  [Chuan Li](https://lambdalabs.com/blog/author/chuan/), [Stephen Balaban](https://lambdalabs.com/), [Yong-liang Yang](http://yongliangyang.net/)  
 (To appear) Neural Information Processing Systems 2018   
- 
+
 ## Dataset
 
 If you want to use your own data, the training images must be combined into a *.tar file, and the voxel files can be stored in a directory. To create TAR file:
@@ -112,6 +112,8 @@ check_point_secs:
 
 - To run the reconstruction from image
 
+  Download pretrained RenderNet and shape AE using this link and move the "data" folder: 
+  https://www.dropbox.com/sh/k5lubuldss58sdg/AABZT2g_0k9xi9JasCiFmMBHa?dl=0
 ```
 python reconstruction/Reconstruct_RenderNet_Face.py config_.json
 ```
@@ -119,9 +121,9 @@ Help with config
 
 ```
 target_normal:
-			path to the target normal map. Used to create the final shaded image for 			 inverse-rendering
+			path to the target normal map. Used to create the target shaded image for 			 inverse-rendering
 target_albedo:
-			path to the target albedo.Used to create the final shaded image for 			    inverse-rendering
+			path to the target albedo.Used to create the target shaded image for 			    inverse-rendering
 weight_dir: 
 			path to the weights of a pretrained RenderNet
 weight_dir_decoder: 
