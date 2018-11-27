@@ -6,14 +6,6 @@ import math
 import scipy.misc
 import time
 
-# sys.path.append(".")
-
-# sys.path.append(os.path.dirname(__file__))
-
-import tools.Phong_shading as Phong_shading
-import tools.layer_util as layer_util
-import tools.binvox_rw as binvox_rw
-
 def repeat(x, n_repeats):
     """
     Repeat X for n_repeats time along 0 axis
@@ -637,6 +629,5 @@ def tf_rotation_resampling(voxel_array, view_params, size=64, new_size=128):
         target = tf_resampling(voxel_array, M, Scale_matrix=S, size=size, new_size=new_size)
 
     return target
-
 
 

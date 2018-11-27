@@ -10,6 +10,24 @@ import tools.utils as utils
 import tools.binvox_rw as binvox_rw
 
 
+def extract_param_from_names(image_path):
+    """
+    Extract pose parameters from an image name.
+    The name should contain pattern: "_p[azimuth]_t[elevation]_r[scale]"
+    :param image_path: name to extract parameters from.
+    :return: A tuple of pose parameter (Azimuth, elevation, scale). Shape [1, 3]
+    """
+    azimuth_index = image_path.find('_p')
+    elevation_index = image_path.find('_t')
+    scale_index = image_path.find('_r')
+    azimuth = float(image_path[azimuth_index + 2: elevation_index]) * math.pi / 180.0
+    scale = 3.3 / float(image_path[scale_index + 2: scale_index + 5])
+    elevation = 90. - float(image_path[elevation_index + 2: scale_index])  # Map from range [10;170] (Up-Z axis =0) to [80;-80] ((horizontal X axis = 0)
+    elevation = elevation * math.pi / 180.0
+
+    param = np.expand_dims(np.array([azimuth, elevation, scale]), axis=0)
+    return param
+
 def model_loader(cfg, model_path):
     """
     A data loader built upon python generator to load binvox models and their names simultaneously from a TAR file

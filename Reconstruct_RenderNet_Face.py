@@ -374,14 +374,13 @@ with graph.as_default():
     tf_ambient_in = tf.constant(ambient_in, dtype=tf.float32)
     tf_k_diffuse = tf.constant(k_diffuse, dtype=tf.float32)
 
-    # shading, mask = tf_phong_composite(normal_pred, light_dir_batch, tf_ambient_in, tf_k_diffuse, tf_light_col_in, with_mask=True)
     shading = Phong.tf_phong_composite(normal_pred, light_dir_batch, tf_light_col_in, tf_ambient_in, tf_k_diffuse, with_mask=True)
     compos_pred = tf.multiply(img_pred, shading)
 
     #===================================================================================================================
     # Compute loss and build optimisers
     #===================================================================================================================
-    recon_loss = tf.reduce_mean(tf.squared_difference(target_img, compos_pred), axis =(1, 2, 3))
+    recon_loss = tf.reduce_mean(tf.squared_difference(target_img, compos_pred), axis=(1, 2, 3))
     global_step = tf.Variable(0, name='global_step', trainable=False)
     t_vars = tf.trainable_variables()
 
