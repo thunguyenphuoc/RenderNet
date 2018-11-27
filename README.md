@@ -11,7 +11,7 @@ __All these objects are rendered with the same network__
   </tr>
 </table></p>
 [RenderNet: A deep convolutional network for differentiable rendering from 3D shapes](https://www.monkeyoverflow.com/#/rendernet-a-cnn-for-differentiable-rendering-from-3d-shapes/)  
-[Thu Nguyen-Phuoc](https://monkeyoverflow.com),  [Chuan Li](https://lambdalabs.com/blog/author/chuan/), [Stephen Balaban](https://lambdalabs.com/), [Yong-liang Yang](http://yongliangyang.net/)  
+[Thu Nguyen-Phuoc](https://monkeyoverflow.com), [Chuan Li](https://lambdalabs.com/blog/author/chuan/), [Stephen Balaban](https://lambdalabs.com/), [Yong-liang Yang](http://yongliangyang.net/)  
 (To appear) Neural Information Processing Systems 2018   
 
 ## Dataset
@@ -189,7 +189,7 @@ Download the pb file and move it into the "model" folder.
 
 __Help__
 ```
-usage: rendernet_demo.py [-h] [--voxel_path VOXEL_PATH] [--azimuth AZIMUTH]
+usage: RenderNet_demo.py [-h] [--voxel_path VOXEL_PATH] [--azimuth AZIMUTH]
                          [--elevation ELEVATION]
                          [--light_azimuth LIGHT_AZIMUTH]
                          [--light_elevation LIGHT_ELEVATION] [--radius RADIUS]
@@ -218,13 +218,13 @@ optional arguments:
 ```
 __Example: rotate bunny by 360 degrees__
 ```
-python main_demo.py --voxel_path ./voxel/Misc/bunny.binvox --rotate
+python RenderNet_demo.py --voxel_path ./voxel/Misc/bunny.binvox --rotate
 
 convert -delay 10 -loop 0 ./render/*.png animation.gif
 ```
 __Example: chair__
 ```
-python rendernet_demo.py --voxel_path ./voxel/Chair/64.binvox \
+python RenderNet_demo.py --voxel_path ./voxel/Chair/64.binvox \
                          --azimuth 250 \
                          --elevation 60 \
                          --light_azimuth 90 \
@@ -235,11 +235,11 @@ python rendernet_demo.py --voxel_path ./voxel/Chair/64.binvox \
 
 __Example: rotate an object by 360 degrees__
 ```
-python rendernet_demo.py --voxel_path ./voxel/Chair/64.binvox --rotate
+python RenderNet_demo.py --voxel_path ./voxel/Chair/64.binvox --rotate
 
-python rendernet_demo.py --voxel_path ./voxel/Table/0.binvox --rotate
+python RenderNet_demo.py --voxel_path ./voxel/Table/0.binvox --rotate
 
-python rendernet_demo.py --voxel_path ./voxel/Misc/tyra.binvox --rotate
+python RenderNet_demo.py --voxel_path ./voxel/Misc/tyra.binvox --rotate
 ```
 
 __Uninstall__
@@ -256,7 +256,7 @@ If you use this code for your research, please cite our paper
 @inproceedings{RenderNet2018,
   title={RenderNet: A deep convolutional network for differentiable rendering from 3D shapes},
   author={Nguyen-Phuoc, Thu and Li, Chuan and Balaban, Stephen and Yang, Yong-Liang},
-  booktitle={Advances in Neural Information Processing Systems 32},
+  booktitle={Advances in Neural Information Processing Systems 31},
   year={2018}
 }
 ```
