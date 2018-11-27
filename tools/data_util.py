@@ -231,39 +231,3 @@ def data_loader_image_texture_normal_face(cfg, img_path, model_path, texture_pat
             mod_name_batch = mod_name_batch[:cfg['batch_size']]
             reader.close()
             yield (im_batch, normal_batch, mod_batch, texture_batch, param_batch, mod_name_batch)
-
-
-if __name__ == "__main__":
-    cfg = {'batch_size':1,
-           'is_greyscale': "false",
-           'batches_chunk': 1}
-    IMAGE_PATH = r"E:\Projects\PhD\SymmetryVAE\Data\ShapeNet Chair\Resolution_64\ShapeNet64_Chair_images_Contours_Relighted_512_train.tar"
-    MODEL_PATH = r"D:/Data_sets/ShapeNetCore_v2/ShapeNet64_Chair/ShapeNet64_Chair_binvox_2_centered"
-    train_loader = data_loader(cfg, img_path=IMAGE_PATH,
-                               model_path=MODEL_PATH, flatten=True,
-                               validation_mode=False,
-                               img_res=512)
-
-    for real_images, real_models, real_params, real_names in train_loader:
-        print(real_images.shape)
-        print(str(real_params))
-        print(real_names)
-        break
-
-    IMAGE_PATH = r"E:\Projects\PhD\SymmetryVAE\Data\BaselFace\baselFace_render_train.tar"
-    MODEL_PATH = r"E:\Projects\PhD\SymmetryVAE\Data\BaselFace\baselFace_binvox_all"
-    NORMAL_PATH = r"E:\Projects\PhD\SymmetryVAE\Data\BaselFace\Face_Normal_train"
-    TEXTURE_PATH = r"E:\Projects\PhD\SymmetryVAE\Data\BaselFace\Param\baselFace_beta_all"
-    train_loader = data_loader_image_texture_normal_face(cfg, img_path=IMAGE_PATH,
-                                                         model_path=MODEL_PATH, normal_path=NORMAL_PATH,
-                                                         texture_path=TEXTURE_PATH,
-                                                         validation_mode=False,
-                                                         img_res=512)
-
-    for real_images, real_normals, real_models, real_texture, real_params, real_names in train_loader:
-        print(real_images.shape)
-        print(real_models.shape)
-        print(real_params)
-        print(real_names)
-        print(real_texture.shape)
-        break

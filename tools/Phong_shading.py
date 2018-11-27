@@ -252,31 +252,3 @@ def generate_light_pos(elevation=90, azimuth=90):
   z = np.multiply(-np.sin(elevation), np.sin(azimuth))
   return np.hstack((x, y, z))
 
-
-
-if __name__ == "__main__":
-    import scipy.misc
-    from PIL import Image
-    normal = np.expand_dims(scipy.misc.imread(r"D:\Projects\RenderNet\data\ply80024_p294_t105_r3.3_normal.png"), 0)
-
-
-    light_dir = np.array([[3., 2.5, 3]])
-    light_col = np.array([[1., 1., 0.]])
-    shaded_im = np_phong_composite(normal[:, :, :, :3]/255.0, light_dir, light_col, 0.1, 1.0, background_col="White")
-
-
-    scipy.misc.imsave(r"D:/numpy_phong.png", shaded_im[0])
-
-
-
-    #=========================================================================================================================
-    batch_size = 5
-    images_in = tf.placeholder(shape=[batch_size, 512, 512, 3], dtype=tf.float32)
-    light_dir = tf.constant(np.tile(np.array([[3., 2.5, 3]]), (batch_size,1)), dtype=tf.float32)
-    light_col = tf.constant(np.tile(np.array([[1., 1., 0.]]), (batch_size,1)), dtype=tf.float32)
-    shaded = tf_phong_composite(images_in / 255.0, light_dir, light_col, 0.1, 1.0)
-
-    with tf.Session() as sess:
-        result = sess.run(shaded, feed_dict={images_in: np.tile(normal[:, :, :, :3], (batch_size, 1, 1, 1)).astype(np.float32)})
-    for i in range(batch_size):
-        scipy.misc.imsave(r"D:/tf_phong_{0}.png".format(i), result[i])

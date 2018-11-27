@@ -238,7 +238,4 @@ def save_binvox(data, fname):
     with open(fname, 'wb') as f:
         model.write(f)
 
-# if __name__ == '__main__':
-#     import doctest
-#     doctest.testmod()
 
