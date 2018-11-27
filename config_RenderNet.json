@@ -1,6 +1,6 @@
 {
-  "image_path": "./data/RenderNet/debug_size_1_contour_scale_512.tar",
-  "image_path_valid": "./data/RenderNet/debug_size_1_contour_scale_512.tar",
+  "image_path": "./data/ShapeNet64_Chair_images_Contours_Relighted_512_train.tar",
+  "image_path_valid": "./data/ShapeNet64_Chair_images_Contours_Relighted_512_validationi.tar",
   "model_path": "./data/ShapeNet64_Chair_binvox_2_centered",
   "is_greyscale": "True",
   "gpu":0,
