@@ -28,7 +28,7 @@ def tf_mask(images_in):
     :return a binary mask in range [0, 1]
     """
     mask = tf.norm(images_in, axis=3, keep_dims=True)
-    mask = tf.sigmoid(255. * mask - 80) #Hacky: mask has to be in [0,255] to work
+    mask = tf.sigmoid(255. * mask - 80) #Mask has to be in [0,255] to work
 
     return mask
 
@@ -38,8 +38,8 @@ def tf_mask_white(images_in):
     :param images_in: input image, must be in range [0, 1]
     :return a binary mask in range [0, 1]
     """
-    mask = tf.norm((1. - images_in), axis=3, keep_dims=True)
-    mask = tf.sigmoid(255. * mask - 80) #Hacky: mask has to be in [0,255] to work
+    mask = tf.ones_like(images_in, dtype=tf.float32) * math.sqrt(3) - tf.norm((images_in), axis=3, keep_dims=True)
+    mask = tf.sigmoid(255. * mask - 80) #Mask has to be in [0,255] to work
 
     return mask
 
@@ -112,13 +112,17 @@ def tf_phong_composite(images_in, light_dir, light_col, ambient_in, k_diffuse, w
 
     return tf.clip_by_value(compos, 0., 1.)
 
-def tf_generate_light_pos(batch_light_azimuth, batch_light_elevation):
+def tf_generate_light_pos(batch_light_azimuth, light_elevation, batch_size):
     """
     Generate position of light source using 3D spherical coordinates
     :param batch_light_azimuth
-    :param batch_light_elevation
+    :param light_elevation: GT light elevation
+    :param batch_size
     :return tensor of batches of light position
     """
+    theta_array = np.tile(np.array([[light_elevation]]), (batch_size, 1))
+    batch_light_elevation = tf.constant(theta_array, dtype=tf.float32)
+
     x = tf.multiply(tf.sin(batch_light_elevation), tf.cos(batch_light_azimuth))
     y = tf.multiply(tf.sin(batch_light_elevation), tf.sin(batch_light_azimuth))
     z = tf.cos(batch_light_elevation)
@@ -253,7 +257,7 @@ def generate_light_pos(elevation=90, azimuth=90):
 if __name__ == "__main__":
     import scipy.misc
     from PIL import Image
-    normal = np.expand_dims(scipy.misc.imread(r"D:\View for Chuan\model_normalized_1000_clean_p258_t71_r3.3normal.png"), 0)
+    normal = np.expand_dims(scipy.misc.imread(r"D:\Projects\RenderNet\data\ply80024_p294_t105_r3.3_normal.png"), 0)
 
 
     light_dir = np.array([[3., 2.5, 3]])
@@ -266,13 +270,13 @@ if __name__ == "__main__":
 
 
     #=========================================================================================================================
-
-    images_in = tf.placeholder(shape=[1, 512, 512, 3], dtype=tf.float32)
-    light_dir = tf.constant(np.array([[3., 2.5, 3]], dtype=np.float32))
-    light_col = tf.constant(np.array([[1., 1., 0.]], dtype=np.float32))
+    batch_size = 5
+    images_in = tf.placeholder(shape=[batch_size, 512, 512, 3], dtype=tf.float32)
+    light_dir = tf.constant(np.tile(np.array([[3., 2.5, 3]]), (batch_size,1)), dtype=tf.float32)
+    light_col = tf.constant(np.tile(np.array([[1., 1., 0.]]), (batch_size,1)), dtype=tf.float32)
     shaded = tf_phong_composite(images_in / 255.0, light_dir, light_col, 0.1, 1.0)
 
     with tf.Session() as sess:
-        result = sess.run(shaded, feed_dict={images_in: normal[:, :, :, :3].astype(np.float32)})
-
-    scipy.misc.imsave(r"D:/tf_phong.png", result[0])
+        result = sess.run(shaded, feed_dict={images_in: np.tile(normal[:, :, :, :3], (batch_size, 1, 1, 1)).astype(np.float32)})
+    for i in range(batch_size):
+        scipy.misc.imsave(r"D:/tf_phong_{0}.png".format(i), result[i])
