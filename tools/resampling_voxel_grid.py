@@ -561,7 +561,7 @@ def tf_rotation_around_grid_centroid(view_params):
             tf.concat([zeros, zeros,  zeros, ones], axis=2)], axis=1)
         return transformation_matrix, batch_Scale
 
-def tf_resampling(voxel_array, transformation_matrix, Scale_matrix = None, size=64, new_size=128):
+def tf_resampling(voxel_array, transformation_matrix, params, Scale_matrix = None, size=64, new_size=128):
     """
     Batch resampling function
     :param voxel_array: batch of voxels. Shape = [batch_size, height, width, depth, features]
@@ -592,6 +592,7 @@ def tf_resampling(voxel_array, transformation_matrix, Scale_matrix = None, size=
     T_new_inv = tf.tile(tf.reshape(T_new_inv, (1, 4, 4)), [batch_size, 1, 1])
 
 
+
     if Scale_matrix is None:
         total_M = tf.matmul(tf.matmul(T_new_inv, transformation_matrix), T)
     else:
@@ -617,6 +618,24 @@ def tf_rotation_resampling(voxel_array, view_params, size=64, new_size=128):
     Rotate voxel grids
     :param voxel_array: Voxel grids to rotate. Shape [batch_size, height, width, depth, channel]
     :param view_params: Target pose (azimuth, elevation, scale) to transform to. Shape [batch_size, 3]
+    :param size: Size of the input voxel grid
+    :param new_size: Output size (usually bigger that input) to make sure the rotated input is not cut off
+    :return: transformed voxel grids with new_size
+    """
+    if tf.shape(view_params)[1] == 2:
+        M = tf_rotation_around_grid_centroid(view_params)
+        target = tf_resampling(voxel_array, M, size=size, new_size=new_size)
+    else:
+        M, S = tf_rotation_around_grid_centroid(view_params)
+        target = tf_resampling(voxel_array, M, Scale_matrix=S, size=size, new_size=new_size)
+
+    return target
+
+def tf_rotation_translation_resampling(voxel_array, view_params, size=64, new_size=128):
+    """
+    Rotate voxel grids
+    :param voxel_array: Voxel grids to rotate. Shape [batch_size, height, width, depth, channel]
+    :param view_params: Target pose (azimuth, elevation, scale, shiftX, shiftY) to transform to. Shape [batch_size, 5]
     :param size: Size of the input voxel grid
     :param new_size: Output size (usually bigger that input) to make sure the rotated input is not cut off
     :return: transformed voxel grids with new_size
